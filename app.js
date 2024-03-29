@@ -29,22 +29,74 @@ function getFormattedDate(date) {
     return year + '-' + month + '-' + day;
 }
 
-
-
-
-//userid,quantity,symbol
-app.post('/api/portfolio',  async (req, res) => {
-
-
+//sell stock
+app.post('/api/portfolio/sell', async (req, res) => {
     const { userid, quantity, ticker } = req.body;
 
     try {
-        // 连接到MongoDB
         await client.connect();
         const db = client.db('A3');
         const collection = db.collection('portfolio');
 
-        // 检查用户是否存在
+        const user = await collection.findOne({ _id: userid });
+
+        if (!user) {
+            res.send({ success:false,message: 'FAIL USER NOT EXISTS' }); // 用户不存在
+            return;
+        }
+
+        const stockIndex = user.stocks.findIndex(stock => stock.ticker === ticker);
+        if (stockIndex === -1 || user.stocks[stockIndex].quantity < quantity) {
+            res.send({ success:false,message: 'FAIL NO ENOUGH STOCK QUANTITY'});
+            return;
+        }
+
+
+        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_API_KEY}`);
+        const price = parseFloat(response.data.c.toFixed(2));
+        const gain = quantity * price;
+
+
+        var orginalQuantity=user.stocks[stockIndex].quantity;
+        user.stocks[stockIndex].quantity -= quantity;
+
+        if (user.stocks[stockIndex].quantity === 0) {
+            user.stocks.splice(stockIndex, 1);
+        }
+        else {
+            user.stocks[stockIndex].cost = Number((quantity*user.stocks[stockIndex].cost/orginalQuantity).toFixed(2));
+        }
+        user.balance = Number((user.balance+gain).toFixed(2));
+
+
+
+        await collection.updateOne({ _id: userid }, { $set: user });
+        res.send({ success: true, user: user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ success: false, message: 'Internal Server Error' });
+    } finally {
+        await client.close();
+    }
+});
+
+
+//userid,quantity,symbol
+//buy
+app.post('/api/portfolio/buy',  async (req, res) => {
+
+
+    const { userid, quantity, ticker } = req.body;
+
+
+
+    try {
+
+        await client.connect();
+        const db = client.db('A3');
+        const collection = db.collection('portfolio');
+
+
         let user = await collection.findOne({ _id: userid });
 
         const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_API_KEY}`);
@@ -52,33 +104,38 @@ app.post('/api/portfolio',  async (req, res) => {
         const totalCost = quantity * price;
 
         if (user) {
-            // 用户存在，更新stocks和balance
+
 
 
 
                 if (user.balance < totalCost) {
-                    res.send({ success: false, message: 'FAIL' }); // 余额不足
+                    res.send({ success: false, message: 'FAIL INSUFFICIENT BALANCE' });
                     return;
                 }
 
 
             const stockIndex = user.stocks.findIndex(s => s.ticker === ticker);
             if (stockIndex !== -1) {
-                // 股票已存在，更新数量和成本
-                user.stocks[stockIndex].quantity += quantity;
-                user.stocks[stockIndex].cost += totalCost;
-            } else {
-                // 股票不存在，添加新的股票信息
-                user.stocks.push({ ticker, quantity, cost: totalCost }); // XXX需要根据实际情况替换
-            }
 
-            user.balance -= totalCost; // XXX需要替换为购买股票花费的金额
+                user.stocks[stockIndex].quantity += Number(quantity);
+                user.stocks[stockIndex].cost = Number((user.stocks[stockIndex].cost+totalCost).toFixed(2));
+
+
+            } else {
+
+                user.stocks.push({ ticker, quantity, cost: Number(totalCost.toFixed(2) )});
+            }
+            console.log("prev",user.balance,totalCost);
+            user.balance =Number((user.balance-totalCost).toFixed(2));
+            console.log("after",user.balance);
+
+
             await collection.updateOne({ _id: userid }, { $set: user });
 
 
         } else {
             if (25000 < totalCost) {
-                res.send({  message: 'FAIL' }); // 初始余额不足
+                res.send({ success: false,  message: 'FAIL INSUFFICIENT BALANCE' });
                 return;
 
             }
@@ -86,17 +143,17 @@ app.post('/api/portfolio',  async (req, res) => {
             user = {
         _id: userid,
                 stocks: [{ ticker, quantity, cost: totalCost }],
-                balance: 25000-totalCost
+                balance: Number((25000-totalCost).toFixed(2))
             };
 
 
             await collection.insertOne(user);
         }
 
-        res.send({message: 'SUCCESS' });
+        res.send({ success: true, user: user });
     } catch (error) {
         console.error(error);
-        res.status(500).send({  message: 'Internal Server Error' });
+        res.status(500).send({ success: false, message: 'Internal Server Error' });
     } finally {
         await client.close();
     }
@@ -104,31 +161,61 @@ app.post('/api/portfolio',  async (req, res) => {
 
 });
 
-// 处理GET请求，返回用户的balance和stocks
+
+
+
+
 app.get('/api/portfolio', async (req, res) => {
-    const { userid } = req.query; // 从查询参数中获取userid
+    const { userid } = req.query;
 
     try {
-        // 连接到MongoDB
+
         await client.connect();
         const db = client.db('A3');
         const collection = db.collection('portfolio');
 
-        // 根据userid查询用户信息
-        const user = await collection.findOne({ id: userid });
+
+        const user = await collection.findOne({ _id: userid });
 
         if (user) {
-            // 用户存在，返回balance和stocks信息
+            const stocksWithPrice = await Promise.all(user.stocks.map(async (stock) => {
+            const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${stock.ticker}&token=${FINNHUB_API_KEY}`);
+            const price = parseFloat(response.data.c.toFixed(2));
+
+
+                const profileResponse = await axios.get(`https://finnhub.io/api/v1/stock/profile2?symbol=${stock.ticker}&token=${FINNHUB_API_KEY}`);
+                const name = profileResponse.data.name;
+
+
+
+                return { ...stock, price ,name};
+        }));
+
             res.send({
-                success: true,
-                data: {
+
+
                     balance: user.balance,
-                    stocks: user.stocks
-                }
+                    stocks: stocksWithPrice
+
             });
         } else {
-            // 用户不存在
-            res.send({ success: false, message: 'User not found' });
+
+
+            const newuser = {
+                _id: userid,
+                stocks: [],
+                balance: 25000
+            };
+
+            await collection.insertOne(newuser);
+
+            res.send({
+
+                    balance: newuser.balance,
+                    stocks: newuser.stocks
+
+            });
+
         }
     } catch (error) {
         console.error(error);
@@ -210,6 +297,8 @@ app.get('/api/watchlist/ifStockInWatchlist', async (req, res) => {
     }
 
 });
+
+
 
 
 
