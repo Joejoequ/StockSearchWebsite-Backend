@@ -6,6 +6,7 @@ const cors = require('cors');
 const {response} = require("express");
 const morgan = require('morgan');
 const app = express();
+const path = require('path');
 app.use(cors());
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 app.use(bodyParser.json());
@@ -21,6 +22,18 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
+
+
+
+app.use(express.static(path.join(__dirname, 'public/cs571-a3/browser')));
+
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/cs571-a3/browser','index.html'));
+});
+
+
+
 
 function getFormattedDate(date) {
     var year = date.getFullYear();
@@ -41,7 +54,7 @@ app.post('/api/portfolio/sell', async (req, res) => {
         const user = await collection.findOne({ _id: userid });
 
         if (!user) {
-            res.send({ success:false,message: 'FAIL USER NOT EXISTS' }); // 用户不存在
+            res.send({ success:false,message: 'FAIL USER NOT EXISTS' });
             return;
         }
 
