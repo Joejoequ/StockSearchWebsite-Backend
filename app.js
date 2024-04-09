@@ -24,7 +24,12 @@ const client = new MongoClient(uri, {
 });
 
 
+app.use(express.static(path.join(__dirname, 'public/cs571-a3/browser')));
 
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/cs571-a3/browser','index.html'));
+});
 
 
 
