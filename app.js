@@ -25,12 +25,7 @@ const client = new MongoClient(uri, {
 
 
 
-app.use(express.static(path.join(__dirname, 'public/cs571-a3/browser')));
 
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/cs571-a3/browser','index.html'));
-});
 
 
 
@@ -551,7 +546,7 @@ app.get('/api/peers',  (req, res) => {
 
 
 function isTrading(lastTradingTime){
-    var lastTrading=new Date(lastTradingTime+300*1000);
+    var lastTrading=new Date((lastTradingTime+300)*1000);
     var current=new Date();
 
     return current<=lastTrading;
