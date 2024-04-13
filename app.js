@@ -346,9 +346,9 @@ app.get('/api/watchlist', async (req, res) => {
                 return {
                     ticker: ticker,
                     name: profileResponse.data.name,
-                    currentPrice: quoteResponse.data.c,
-                    priceChange: quoteResponse.data.d,
-                    percentChange: quoteResponse.data.dp
+                    currentPrice : quoteResponse.data.c ?? 0.0,
+                    priceChange :quoteResponse.data.d ??0.0,
+                    percentChange: quoteResponse.data.dp ?? 0.0
                 };
             }));
 
