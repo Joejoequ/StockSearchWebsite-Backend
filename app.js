@@ -88,8 +88,6 @@ app.post('/api/portfolio/sell', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).send({ success: false, message: 'Internal Server Error' });
-    } finally {
-        await client.close();
     }
 });
 
@@ -167,8 +165,6 @@ app.post('/api/portfolio/buy',  async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).send({ success: false, message: 'Internal Server Error' });
-    } finally {
-        await client.close();
     }
 
 
@@ -233,8 +229,6 @@ app.get('/api/portfolio', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).send({ success: false, message: 'Internal Server Error' });
-    } finally {
-        await client.close();
     }
 });
 
@@ -267,9 +261,6 @@ app.post('/api/watchlist',  async (req, res) => {
     } catch (error) {
         console.error('Database:', error);
         res.status(500).json({ error: 'FAIL' });
-    } finally {
-
-        await client.close();
     }
 
 });
@@ -304,9 +295,6 @@ app.get('/api/watchlist/ifStockInWatchlist', async (req, res) => {
     } catch (error) {
         console.error('Database:', error);
         res.status(500).send('Database Error'+error);
-    } finally {
-
-        await client.close();
     }
 
 });
@@ -361,9 +349,6 @@ app.get('/api/watchlist', async (req, res) => {
     } catch (error) {
         console.error('Database:', error);
         res.status(500).send('Database Error'+error);
-    } finally {
-
-        await client.close();
     }
 
 });
@@ -397,9 +382,6 @@ app.delete('/api/watchlist/:userid/:stockSymbol', async (req, res) => {
     } catch (error) {
         console.error('Database:', error);
         res.status(500).json({ error: 'FAIL' });
-    } finally {
-
-        await client.close();
     }
 
 });
